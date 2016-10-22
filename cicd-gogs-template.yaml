@@ -36,6 +36,39 @@ parameters:
   name: SONAR_POSTGRESQL_PASSWORD
   required: true
 objects:
+# Volumes
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: postgresql-gogs
+  spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 512Mi
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: gogs-root
+  spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 512Mi
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: jenkins-data-vol
+  spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 512Mi
+
+
 # Jenkins Master
 - apiVersion: v1
   kind: ImageStream
@@ -151,9 +184,9 @@ objects:
         securityContext: {}
         terminationGracePeriodSeconds: 30
         volumes:
-        - name: jenkins-data
-          emptyDir:
-            medium: ""
+        - persistentVolumeClaim:
+            claimName: jenkins-data-vol
+          name: jenkins-data 
     test: false
     triggers:
     - type: ConfigChange
@@ -403,6 +436,9 @@ objects:
             protocol: TCP
           resources: {}
           terminationMessagePath: /dev/termination-log
+          volumeMounts:
+          - mountPath: /home/gogs/gogs-repositories
+            name: gogs-root-data
           readinessProbe:
             failureThreshold: 3
             initialDelaySeconds: 15
@@ -411,11 +447,15 @@ objects:
             httpGet:
               port: 3000
               path: /
-            timeoutSeconds: 1
+            -roottimeoutSeconds: 1
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         securityContext: {}
         terminationGracePeriodSeconds: 30
+        volumes:
+        - persistentVolumeClaim:
+            claimName: gogs-root
+          name: gogs-root-data
     triggers:
     - type: ConfigChange
     - imageChangeParams:
@@ -501,7 +541,8 @@ objects:
         securityContext: {}
         terminationGracePeriodSeconds: 30
         volumes:
-        - emptyDir: {}
+        - persistentVolumeClaim:
+            claimName: postgresql-gogs
           name: postgresql-data
     triggers:
     - imageChangeParams:
